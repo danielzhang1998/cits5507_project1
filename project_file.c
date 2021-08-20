@@ -2,7 +2,7 @@
     Author: Hanlin Zhang
     Student id: 22541459
     Unit: CITS 5507
-    Date: 17 Aug 2021
+    Date: 18 Aug 2021
 */
 
 #include <stdio.h>
@@ -20,8 +20,19 @@ void merge_sort_looping(double *array, double *array_new, int left, int right);
 void print_array(double *array, int array_size);
 void quicksort(double *array, int left, int right);
 int quick_sort_looping(double *array, int left, int right);
+double *start_enum(double *array, size_t array_length);
+double *start_merge(double *array, size_t array_length);
+double *start_quick(double *array, size_t array_length);
 
 
+/** 
+ * @brief compare the values in each array to see the arrays are same or difference
+ * @param array_1 the array 1 to compare
+ * @param array_2 the array 2 to compare
+ * @param array_3 the array 3 to compare
+ *
+ * @return return 0 if all same, -1 if difference
+*/
 int compare_result(double *array_1, double *array_2, double *array_3, size_t array_length){
     for (int i = 0; i < array_length; i++){
         if(array_1[i] == array_2[i] && array_2[i] == array_3[i]){
@@ -45,12 +56,23 @@ int compare_result(double *array_1, double *array_2, double *array_3, size_t arr
     return 0;
 }
 
+
+/** 
+ * @brief copy array A to array B (can decide copy from position x to y)
+ * @param target the target array to copy data into it
+ * @param source the source array to get the copied data
+ * @param start the position of source array to start copy
+ * @param end the position of source array to stop copy
+ *
+ * @return return the new array after copy data in
+*/
 double *copy_array_to_array(double *target, double *source, int start, int end){
     for (int i = start; i <= end; i++){
         target[i] = source[i];
     }
     return target;
 }
+
 
 /** 
  * @brief deep copy the content from original array to target array
@@ -116,12 +138,33 @@ double *generate_array(size_t value) {
 }
 
 
+/** 
+ * @brief generate a new array to get the result after sorting
+ * split the array to be two parts which called A and B
+ * split A and B seperately by using recursion
+ * repeat the step, until only 1 element inside, then compare each
+ * put the smallest in two elements at the left, the biggest on the right
+ * now repeat the step above, we get multiple arrays which contains 2 elements inside
+ * then re-compare each array from left to right, sort them and merge two arrays
+ * finally, we will get a sorted array
+ * @param array the array need to be sorted
+ * @param array_length length of the array
+ * 
+*/
 void merge_sort(double *array, size_t array_length){
     double *array_new = generate_array(array_length);
     merge_sort_looping(array, array_new, 0, array_length - 1);
 }
 
 
+/** 
+ * @brief see description in function merge_sort
+ * @param array the array need to be sorted
+ * @param array_new an empty array to accept the result after sorted
+ * @param left the pointer used to loop the array on the left (array A)
+ * @param right the pointer used to loop the array on the right (array B)
+ * 
+*/
 void merge_sort_looping(double *array, double *array_new, int left, int right){
     if(left >= right)
         return;
@@ -182,6 +225,7 @@ void print_array(double *array, int array_size){
     for (size_t i = 0; i < array_size; i++)
         printf("%lf\n", array[i]);
     
+    printf("\n\n");
 }
 
 
@@ -211,7 +255,6 @@ int quick_sort_looping(double *array, int left, int right){
 }
 
 
-
 /** 
  * @brief quick sort algorithm
  * see the description in looping function 
@@ -228,40 +271,69 @@ void quicksort(double *array, int left, int right){
 }
 
 
-int main()
+double *start_enum(double *array, size_t array_length){
+    double *array_enum = deep_copy(array, 0, array_length);
+    printf("array after enum sort:\n");
+    array_enum = enum_sort(array_enum, array_length);
+    print_array(array_enum, array_length);
+    
+    return array_enum;
+}
+
+
+double *start_merge(double *array, size_t array_length){
+    double *array_merge = deep_copy(array, 0, array_length);
+    printf("array after merge sort:\n");
+    merge_sort(array_merge, array_length);
+    print_array(array_merge, array_length);
+    
+    return array_merge;
+}
+
+
+double *start_quick(double *array, size_t array_length){
+    double *array_quick = deep_copy(array, 0, array_length);
+    printf("array after quick sort:\n");
+    quicksort(array_quick, 0, array_length - 1);
+    print_array(array_quick, array_length);
+    
+    return array_quick;
+}
+
+
+int main(int argc, char *argv[])
 {
     srand(time(NULL));
     size_t array_length = 10;
     double *array = generate_array(array_length);
+    if(argc != 2 && argc != 3){
+        return -1;
+    }
+    else{
+        printf("original array:\n");
+        print_array(array, array_length);
+    }
 
-    double *array_quick = deep_copy(array, 0, array_length);
-    double *array_enum = deep_copy(array, 0, array_length);
-    double *array_merge = deep_copy(array, 0, array_length);
+    if(strcmp(argv[1], "enum") == 0 && argc == 2){
+        start_enum(array, array_length);
+    }
+    else if(strcmp(argv[1], "quick") == 0 && argc == 2){
+        start_quick(array, array_length);
+    }
+    else if(strcmp(argv[1], "merge") == 0 && argc == 2){
+        start_merge(array, array_length);
+    }
+    else if(argc == 2){
+        double *array_quick = start_quick(array, array_length);
+        double *array_enum = start_enum(array, array_length);
+        double *array_merge = start_merge(array, array_length);
 
-    printf("original array:\n");
-    print_array(array, array_length);
-    printf("\n\n");
+        compare_result(array_quick, array_enum, array_merge, array_length);
+    }
 
-    printf("array after quick sort:\n");
-    quicksort(array_quick, 0, array_length - 1);
-    print_array(array_quick, array_length);
-    printf("\n\n");
-
-    printf("array after enum sort:\n");
-    array_enum = enum_sort(array_enum, array_length);
-    print_array(array_enum, array_length);
-    printf("\n\n");
-    
-    printf("array after enum sort:\n");
-    merge_sort(array_merge, array_length);
-    print_array(array_merge, array_length);
-    printf("\n\n");
-
-    compare_result(array_quick, array_enum, array_merge, array_length);
+    printf("%s\n", argv[2]);
 
     free(array);
-    free(array_quick);
-    free(array_enum);
-    free(array_merge);
+    
     return 0;
 }
