@@ -2,7 +2,7 @@
     Author: Hanlin Zhang
     Student id: 22541459
     Unit: CITS 5507
-    Date: 30 Aug 2021
+    Date: 1 Sep 2021
 */
 
 #include <ctype.h>
@@ -20,14 +20,16 @@ double *enum_sort(double *array, size_t array_length);
 double *generate_array(size_t value);
 double *start_enum(double *array, size_t array_length);
 double *start_merge(double *array, size_t array_length);
+double *start_omp_merge(double *array, size_t array_length);
 double *start_omp_quick(double *array, size_t array_length);
 double *start_quick(double *array, size_t array_length);
 
 int compare_result(double *array_1, double *array_2, double *array_3, size_t array_length);
 int quick_sort_looping(double *array, int left, int right);
 
-void merge_sort(double *array, size_t size);
-void merge_sort_looping(double *array, double *array_new, int left, int right);
+void merge_sort(double *array, int start, int end);
+void merge_sort_looping(double *array, int start, int end);
+void omp_merge(double *array, int start, int end);
 void omp_quick(double *array, int left, int right);
 void print_array(double *array, int array_size);
 void print_time_distance(struct timeval time1, struct timeval time2);
@@ -176,70 +178,92 @@ double *generate_array(size_t value) {
  * then re-compare each array from left to right, sort them and merge two arrays
  * finally, we will get a sorted array
  * @param array the array need to be sorted
- * @param array_length length of the array
+ * @param start the start of the current array
+ * @param end the end of the current array
  * 
 */
-void merge_sort(double *array, size_t array_length){
-    double *array_new = generate_array(array_length);
-    merge_sort_looping(array, array_new, 0, array_length - 1);
+void merge_sort(double *array, int start, int end){
+        if(start < end) {
+            int half = (start + end) / 2;   //middle of the array
+            merge_sort(array, start, half); //array1 (left)
+            merge_sort(array, half + 1, end);   //array2 (right)
+            merge_sort_looping(array, start, end);
+    }
 }
 
 
 /** 
  * @brief see description in function merge_sort
  * @param array the array need to be sorted
- * @param array_new an empty array to accept the result after sorted
- * @param left the pointer used to loop the array on the left (array A)
- * @param right the pointer used to loop the array on the right (array B)
+ * @param start the start of the current array
+ * @param end the end of the current array
  * 
 */
-void merge_sort_looping(double *array, double *array_new, int left, int right){
-    if(left >= right)
-        return;
+void merge_sort_looping(double *array, int start, int end){
+    int half = (start + end) / 2;
+    int pointer = 0;    //  pointer move in the temp array
+    double *temp = malloc(sizeof(double) * (end - start + 1));  //  save the values after sorting
 
-    int pointer = left;
-    int distance = right - left;
-    int half = (distance / 2) + left;
+    int left = start;   //  initialize the pointer at the top of array1
+    int right = half + 1;   //  initialize the pointer at the top of array2 (middle + 1 of the parent array)
+
+    //  compare the value in array1 and array2 from left to right
+    //  if value1 < value2, put value1 into the temp array
+    //  otherwise, put value2 in
+    while((left <= half) && (right <= end)) {
+        if (array[left] < array[right]) 
+            temp[pointer++] = array[left++];
+        else 
+            temp[pointer++] = array[right++];
+    }
+
+    //  if still value(s) in array1 or array2
+    while(left <= half) 
+        temp[pointer++] = array[left++];
     
-    //  the array split into two part
-    //  both array all have left pointer and right pointer
-    //  left_l and right_l are the left pointer and right pointer for left hand side array
-    //  left_r and right_r are the left pointer and right pointer for right hand side array
+    while(right <= end) 
+        temp[pointer++] = array[right++];
+        
+    //  copy temp array to original array
+    //  tried to use copy_array_to_array function, but failed (the element number on two side (array) is different)
+    for (int i = start; i <= end; i++)
+        array[i] = temp[i - start];
 
-    int left_l = left;
-    int right_l = half;
+    free(temp); //free the temp array
+}
 
-    int left_r = half + 1;
-    int right_r = right;
 
-    merge_sort_looping(array, array_new, left_l, right_l);
-    merge_sort_looping(array, array_new, left_r, right_r);
+/**
+ * @brief run the merge algorithm with using omp
+ * @param array the array to be sorted
+ * @param start the start of the array
+ * @param end the end of the array
+ * 
+ */
 
-    while(left_l <= right_l && left_r <= right_r){
-        if(array[left_l] < array[left_r]){
-            array_new[pointer] = array[left_l];
-            left_l++;
+void omp_merge(double *array, int start, int end){
+    if(start < end){
+        if((end - start) > 100000){
+            int middle = (start + end) / 2;
+            #pragma omp parallel
+            {
+                #pragma omp single nowait
+                {
+                    #pragma omp task firstprivate(array, start, middle)
+                    omp_merge(array, start, middle);    //array1 (left)
+                    #pragma omp task firstprivate(array, middle, end)
+                    omp_merge(array, middle + 1, end);  //array2 (right)
+                }
+            }
+            //wait for the task finished, then sort the array
+            #pragma omp taskwait
+            merge_sort_looping(array, start, end);  
+            
         }
         else{
-            array_new[pointer] = array[left_r];
-            left_r++;
+            merge_sort(array, start, end);
         }
-        pointer++;
-    }
-
-    while(left_l <= right_l){
-        array_new[pointer] = array[left_l];
-        pointer++;
-        left_l++;
-    }
-
-    while(left_r <= right_r){
-        array_new[pointer] = array[left_r];
-        pointer++;
-        left_r++;
-    }
-
-    array = copy_array_to_array(array, array_new, left, right);
+        }
 }
 
 
@@ -264,6 +288,7 @@ void omp_quick(double *array, int left, int right){
     }
 }
 
+
 /** 
  * @brief print the array
  * @param array array to be printed
@@ -280,8 +305,8 @@ void print_array(double *array, int array_size){
 
 /** 
  * @brief print the time distance of two time point
- * @param time_1 the earlier time point
- * @param time_3 the later time point
+ * @param time1 the earlier time point
+ * @param time2 the later time point
  *
 */
 void print_time_distance(struct timeval time1, struct timeval time2){
@@ -341,7 +366,7 @@ void quicksort(double *array, int left, int right){
 */
 double *start_enum(double *array, size_t array_length){
     double *array_enum = deep_copy(array, 0, array_length);
-    printf("array after enum sort:\n");
+    //printf("array after enum sort:\n");
     array_enum = enum_sort(array_enum, array_length);
     // uncomment the line below to see the array after sorting
     //print_array(array_enum, array_length);
@@ -359,12 +384,30 @@ double *start_enum(double *array, size_t array_length){
 */
 double *start_merge(double *array, size_t array_length){
     double *array_merge = deep_copy(array, 0, array_length);
-    printf("array after merge sort:\n");
-    merge_sort(array_merge, array_length);
+    //print_array(array_merge, array_length);
+    //printf("array after merge sort:\n");
+    merge_sort(array_merge, 0, array_length - 1);
     // uncomment the line below to see the array after sorting
     //print_array(array_merge, array_length);
     
     return array_merge;
+}
+
+
+/** 
+ * @brief start running omp merge algorithm
+ * @param array array to be copied
+ * @param array_length the length to be copied
+ *
+ * @return return the result after using omp merge algorithm
+*/
+double *start_omp_merge(double *array, size_t array_length){
+    double *array_omp_merge = deep_copy(array, 0, array_length);
+
+    omp_merge(array_omp_merge, 0, array_length -1);
+    
+    //print_array(array, array_length);
+    return array_omp_merge;
 }
 
 
@@ -377,7 +420,7 @@ double *start_merge(double *array, size_t array_length){
 */
 double *start_omp_quick(double *array, size_t array_length){
     double *array_omp_quick = deep_copy(array, 0, array_length);
-    printf("array after omp quick sort:\n");
+    //printf("array after omp quick sort:\n");
     omp_quick(array_omp_quick, 0, array_length);
     // uncomment the line below to see the array after sorting
     //print_array(array_omp_quick, array_length);
@@ -395,7 +438,7 @@ double *start_omp_quick(double *array, size_t array_length){
 */
 double *start_quick(double *array, size_t array_length){
     double *array_quick = deep_copy(array, 0, array_length);
-    printf("array after quick sort:\n");
+    //printf("array after quick sort:\n");
     quicksort(array_quick, 0, array_length - 1);
     // uncomment the line below to see the array after sorting
     //print_array(array_quick, array_length);
@@ -407,24 +450,22 @@ double *start_quick(double *array, size_t array_length){
 int main(int argc, char *argv[])
 {
     srand(time(NULL));
-    
     struct timeval start, middle, end;
-    if ((argc != 3 && argc != 4) || atoi(argv[1]) <= 0)
+    if ((argc != 3 && argc != 4) || atoi(argv[1]) <= 0 || (argc == 4 && strcmp(argv[3], "-omp") != 0))
     {
         printf("To run the specific sorting algorithm without using omp: ./OUT_FILE SEED_NUMBER SORTING_ALGORITHM\n");
         printf("To run the specific sorting algorithm with using omp: ./OUT_FILE SEED_NUMBER SORTING_ALGORITHM -omp\n");
         printf("Sorting algorithm include: enum, quick, merge and all(run all three sorting algorithms)\n");
         return -1;
     }
-    else{
-        // uncomment two lines below to see the original array before sorting
-        //printf("original array:\n");
-        //print_array(array, array_length);
-    }
 
-    //  the array_length should be larger than 40000
+    //  the array_length should be larger than 60000
     size_t array_length = atoi(argv[1]);    //  convert char type to int type
     double *array = generate_array(array_length);
+
+    // uncomment two lines below to see the original array before sorting
+    //printf("original array:\n");
+    //print_array(array, array_length);
 
     if(strcmp(argv[2], "enum") == 0 && argc == 3){
         start_enum(array, array_length);
@@ -455,7 +496,18 @@ int main(int argc, char *argv[])
             print_time_distance(middle, end);
             compare_result(array_quick, array_quick, omp_quick_result, array_length);
         }
+        else if(strcmp(argv[2], "merge") == 0){
+            gettimeofday(&start, NULL);
+            double *array_merge = start_merge(array, array_length);
+            gettimeofday(&middle, NULL);
+            print_time_distance(start, middle);
+            double *omp_merge_result = start_omp_merge(array, array_length);
 
+            gettimeofday(&end, NULL);
+            print_time_distance(middle, end);
+            //print_array(omp_merge_result, array_length);
+            compare_result(array_merge, array_merge, omp_merge_result, array_length);
+        }
     }
 
     free(array);
