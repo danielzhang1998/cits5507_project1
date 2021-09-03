@@ -16,6 +16,8 @@ https://fishc.com.cn/forum.php?mod=viewthread&tid=79940&highlight=%B9%E9%B2%A2%C
 
 再下一步进行并行运算的改写
 
+=========================
+
 已完成使用 omp 执行的 quick sort algorithm
 
 如何运行代码:
@@ -37,3 +39,14 @@ gcc-10 -fopenmp project_file.c -o project_file.out
 https://stackoverflow.com/questions/56060548/my-mergesort-algorythm-is-slower-with-openmp-how-can-i-make-it-faster-then-the
 
 http://ianfinlayson.net/class/cpsc425/notes/23-sorting
+
+=========================
+
+已完成使用 omp 执行的 enum sort algorithm
+
+如何运行代码:
+gcc-10 -fopenmp project_file.c -o project_file.out
+
+./project_file.out 100000 enum -omp
+
+对于 enum sort omp, array 大小大于 100000,会显得很缓慢
